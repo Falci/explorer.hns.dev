@@ -170,12 +170,12 @@
         function v1ToV2() {
           const old = localStorage.getItem(KEY);
           if (old) {
+            const url = new URL(old);
             // check if if was a known provider
-            if (providers.map((p) => p.alias).includes(old)) {
+            if (providers.map((p) => p.alias).includes(old.origin)) {
               localStorage.setItem(STORAGE_KEY, old);
             } else {
               // assume path for the custom provider:
-              const url = new URL(old);
               const custom = {
                 alias: url.hostname,
                 tx: `${url}tx/{tx}`,
