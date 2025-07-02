@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Handshake Explorer</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <style>
+      .form-field .example {
+        opacity: 0;
+        transition: opacity 0.3s ease-in-out;
+      }
+      .form-field:hover .example,
+      .form-field input:focus ~ .example {
+        opacity: 1;
+      }
+    </style>
+  </head>
+  <body class="h-full">
+    <div
+      class="h-full bg-indigo-200 flex flex-col justify-between items-center"
+    >
+      <div></div>
+      <div class="border rounded-sm p-10 bg-white shadow-lg w-96">
+        <h1 class="text-2xl mb-4">Handshake Explorer</h1>
+
+        <button
+          id="update"
+          class="hidden bg-indigo-600 text-white p-2 rounded-sm shadow-lg cursor-pointer"
+        >
+          Change explorer
+        </button>
+        <div id="msg" class="hidden"></div>
+        <div id="set" class="hidden">
+          <h2>Set your preferred block explorer:</h2>
+          <div class="flex flex-col gap-4">
+            <select class="border border-gray-400 rounded-sm p-2" id="select">
+              <option value="">Custom...</option>
+              <option value="e.hnsfans.com">e.hnsfans.com</option>
+              <option value="niami.io">niami.io</option>
+              <option value="shakeshift.com">shakeshift.com</option>
+            </select>
+            <div id="custom-fields" class="hidden flex flex-col gap-4">
+              <div class="flex flex-col form-field">
+                <label for="custom-alias" class="text-sm">Provider Name</label>
+                <input
+                  type="text"
+                  id="custom-alias"
+                  class="border border-gray-400 rounded-sm p-2"
+                  placeholder="Provider Name"
+                />
+                <p class="text-xs text-gray-600 example">
+                  Example: My Favorite Explorer
+                </p>
+              </div>
+
+              <div class="flex flex-col form-field">
+                <label for="custom-tx" class="text-sm"
+                  >Transaction URL Template</label
+                >
+                <input
+                  type="text"
+                  id="custom-tx"
+                  class="border border-gray-400 rounded-sm p-2"
+                  placeholder="Transaction URL template, e.g. https://explorer.com/tx/{tx}"
+                />
+                <p class="text-xs text-gray-600 example">
+                  e.g. https://explorer.com/tx/{tx}
+                </p>
+              </div>
+              <div class="flex flex-col form-field">
+                <label for="custom-address" class="text-sm"
+                  >Address URL Template</label
+                >
+                <input
+                  type="text"
+                  id="custom-address"
+                  class="border border-gray-400 rounded-sm p-2"
+                  placeholder="Address URL template, e.g. https://explorer.com/address/{address}"
+                />
+                <p class="text-xs text-gray-600 example">
+                  e.g. https://explorer.com/address/{address}
+                </p>
+              </div>
+              <div class="flex flex-col form-field">
+                <label for="custom-block" class="text-sm"
+                  >Block URL Template</label
+                >
+                <input
+                  type="text"
+                  id="custom-block"
+                  class="border border-gray-400 rounded-sm p-2"
+                  placeholder="Block URL template, e.g. https://explorer.com/block/{block}"
+                />
+                <p class="text-xs text-gray-600 example">
+                  e.g. https://explorer.com/block/{block}
+                </p>
+              </div>
+              <div class="flex flex-col form-field">
+                <label for="custom-name" class="text-sm"
+                  >Name URL Template</label
+                >
+                <input
+                  type="text"
+                  id="custom-name"
+                  class="border border-gray-400 rounded-sm p-2"
+                  placeholder="Name URL template, e.g. https://explorer.com/name/{name}"
+                />
+                <p class="text-xs text-gray-600 example">
+                  e.g. https://explorer.com/name/{name}
+                </p>
+              </div>
+            </div>
+            <button
+              id="save"
+              class="bg-indigo-600 text-white p-2 rounded-sm shadow-lg cursor-pointer"
+            >
+              Save
+            </button>
+          </div>
+        </div>
+        <a
+          id="cancel"
+          class="hidden bg-indigo-600 text-white mt-2 p-2 text-center rounded-sm shadow-lg cursor-pointer"
+          href="/?redirect=false"
+          >Cancel</a
+        >
+      </div>
+      <div class="text-sm text-gray-600 p-4 text-center">
+        <a
+          href="https://github.com/falci/explorer.hns.dev"
+          class="hover:underline"
+          target="_blank"
+          rel="noopener noreferrer"
+          >Source on GitHub</a
+        >
+      </div>
+    </div>
+    <script>
+      const VERSION = '2.0.0';
+      const KEY = 'explorer.hns.dev';
+      const STORAGE_KEY = KEY + '_' + VERSION;
+
+      const providers = [
+        {
+          alias: 'e.hnsfans.com',
+          tx: 'https://e.hnsfans.com/tx/{tx}',
+          address: 'https://e.hnsfans.com/address/{address}',
+          block: 'https://e.hnsfans.com/block/{block}',
+          name: 'https://e.hnsfans.com/name/{block}',
+        },
+        {
+          alias: 'niami.io',
+          tx: 'https://niami.io/tx/{tx}',
+          address: 'https://niami.io/address/{address}',
+          block: 'https://niami.io/block/{block}',
+          name: 'https://niami.io/name/{block}',
+        },
+        {
+          alias: 'shakeshift.com',
+          tx: 'https://shakeshift.com/transition/{tx}',
+          address: 'https://shakeshift.com/address/{address}',
+          block: 'https://shakeshift.com/block/{block}',
+          name: 'https://shakeshift.com/name/{block}',
+        },
+      ];
+
+      // migrations
+      [
+        function v1ToV2() {
+          const old = localStorage.getItem(KEY);
+          if (old) {
+            // check if if was a known provider
+            if (providers.map((p) => p.alias).includes(old)) {
+              localStorage.setItem(STORAGE_KEY, old);
+            } else {
+              // assume path for the custom provider:
+              const url = new URL(old);
+              const custom = {
+                alias: url.hostname,
+                tx: `${url}tx/{tx}`,
+                name: `${url}name/{name}`,
+                address: `${url}address/{address}`,
+                block: `${url}block/{block}`,
+              };
+              localStorage.setItem(STORAGE_KEY, JSON.stringify(custom));
+            }
+
+            // remove old key
+            localStorage.removeItem(KEY);
+          }
+        },
+      ].forEach((fn) => fn());
+
+      const $ = (s) => document.querySelector(s);
+      const $$ = (s) => document.querySelectorAll(s);
+
+      $('#select').onchange = (e) => {
+        const value = e.target.value;
+        const customFields = $('#custom-fields');
+
+        if (value) {
+          customFields.classList.add('hidden');
+        } else {
+          customFields.classList.remove('hidden');
+        }
+      };
+
+      const path = location.pathname;
+      const noRedirect =
+        new URLSearchParams(location.search).get('redirect') === 'false';
+      const savedProviderJSON = localStorage.getItem(STORAGE_KEY);
+      let savedProvider = null;
+      if (savedProviderJSON) {
+        try {
+          savedProvider = JSON.parse(savedProviderJSON);
+        } catch (e) {
+          console.error('Error parsing saved provider', e);
+          localStorage.removeItem(STORAGE_KEY);
+        }
+      }
+
+      $('#update').onclick = () => {
+        $('#update').classList.add('hidden');
+        $('#set').classList.remove('hidden');
+      };
+
+      $('#save').onclick = (e) => {
+        const selectedProviderName = $('#select').value;
+        let providerToSave;
+
+        if (selectedProviderName) {
+          providerToSave = providers.find(
+            (p) => p.alias === selectedProviderName
+          );
+        } else {
+          providerToSave = {
+            name: $('#custom-name').value,
+            tx: $('#custom-tx').value,
+            address: $('#custom-address').value,
+            block: $('#custom-block').value,
+          };
+
+          if (
+            !providerToSave.name ||
+            !providerToSave.tx ||
+            !providerToSave.address ||
+            !providerToSave.block
+          ) {
+            alert('Please fill all custom provider fields.');
+            return;
+          }
+        }
+
+        if (providerToSave) {
+          localStorage.setItem(KEY, JSON.stringify(providerToSave));
+          savedProvider = providerToSave; // update current state
+          $('#set').classList.add('hidden');
+          $('#msg').classList.remove('hidden');
+          $('#msg').innerHTML = 'Saved! Reloading to redirect...';
+          setTimeout(() => {
+            location.reload();
+          }, 1000);
+        }
+      };
+
+      if (savedProvider) {
+        const select = $('#select');
+        const found = providers.some((p) => p.alias === savedProvider.alias);
+
+        if (found) {
+          select.value = savedProvider.name;
+        } else {
+          select.value = ''; // Custom
+          $('#custom-alias').value = savedProvider.alias;
+          $('#custom-name').value = savedProvider.name;
+          $('#custom-tx').value = savedProvider.tx;
+          $('#custom-address').value = savedProvider.address;
+          $('#custom-block').value = savedProvider.block;
+        }
+        select.dispatchEvent(new Event('change'));
+      }
+
+      if (!savedProvider) {
+        $('#set').classList.remove('hidden');
+        $('#custom-fields').classList.remove('hidden');
+      }
+
+      if (noRedirect) {
+        $('#update').classList.remove('hidden');
+      }
+
+      if (savedProvider && !noRedirect) {
+        const parts = path.split('/').filter(Boolean);
+        let url;
+        let providerName = savedProvider.alias;
+
+        if (parts.length === 2) {
+          const [type, value] = parts;
+          if (savedProvider[type]) {
+            url = savedProvider[type].replace(`{${type}}`, value);
+          }
+        } else {
+          // root path
+          try {
+            const baseUrl = new URL(
+              savedProvider.tx ||
+                savedProvider.address ||
+                savedProvider.block ||
+                savedProvider.name
+            ).origin;
+            url = baseUrl;
+          } catch (e) {
+            console.error('Could not determine base URL from tx', e);
+          }
+        }
+
+        if (url) {
+          $('#cancel').classList.remove('hidden');
+          $('#cancel').classList.add('inline-block');
+          $('#msg').classList.remove('hidden');
+          $(
+            '#msg'
+          ).innerHTML = `Redirecting to <a href="${url}" class="text-blue-600 underline">${providerName}</a>`;
+
+          setTimeout(() => {
+            window.location.href = url;
+          }, 3000);
+        } else {
+          $('#update').classList.remove('hidden');
+          $('#msg').classList.remove('hidden');
+          $('#msg').innerHTML = 'Could not determine redirect URL.';
+        }
+      }
+    </script>
+  </body>
+</html>
