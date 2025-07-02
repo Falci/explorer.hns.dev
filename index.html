@@ -168,14 +168,17 @@
       // migrations
       [
         function v1ToV2() {
-          const old = localStorage.getItem(KEY);
-          if (old) {
-            const url = new URL(old);
+          const v1 = localStorage.getItem(KEY);
+          if (v1) {
+            console.log('Migration from V1 to V2');
+            const url = new URL(v1);
             // check if if was a known provider
-            if (providers.map((p) => p.alias).includes(old.origin)) {
-              localStorage.setItem(STORAGE_KEY, old);
+            const provider = providers.find((p) => p.alias === url.hostname);
+            if (provider) {
+              console.log('Found a known provider', provider.alias);
+              localStorage.setItem(STORAGE_KEY, JSON.stringify(provider));
             } else {
-              // assume path for the custom provider:
+              console.log('Custom provider', url.hostname);
               const custom = {
                 alias: url.hostname,
                 tx: `${url}tx/{tx}`,
