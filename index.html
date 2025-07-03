@@ -256,7 +256,7 @@
         }
 
         if (providerToSave) {
-          localStorage.setItem(KEY, JSON.stringify(providerToSave));
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(providerToSave));
           savedProvider = providerToSave; // update current state
           $('#set').classList.add('hidden');
           $('#msg').classList.remove('hidden');
